@@ -4,6 +4,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.caodong0225.videoplayer.client.RetrofitClient.BASE_URL
 import com.caodong0225.videoplayer.model.UploadVideoInfoDTO
@@ -34,7 +35,8 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         // 获取设备的唯一 ID 作为 UUID
-        val androidId: String = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+        val androidId: String =
+            Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
 
         // 获取 JWT token
         CoroutineScope(Dispatchers.IO).launch {
@@ -44,11 +46,25 @@ class MainActivity : AppCompatActivity() {
             if (jwtToken != null) {
                 // 获取视频信息
                 videoPlay = videoRepository.getRandomVideo(jwtToken!!)
+
+                if(videoPlay == null) {
+                    // 网络请求有问题，利用Toast弹出，然后退出应用
+                    // Switch to the main thread to show the Toast and then finish the activity
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@MainActivity, "没有更多视频了", Toast.LENGTH_SHORT).show()
+                        finish()
+                    }
+                    finish()
+                }
                 // 打印videoPlay
                 // println("videoPlayInfo: $videoPlay")
-            }else{
+            } else {
                 // 网络请求有问题，利用Toast弹出，然后退出应用
-                // Toast.makeText(this, "网络请求失败", Toast.LENGTH_SHORT).show()
+                // Switch to the main thread to show the Toast and then finish the activity
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "网络请求失败", Toast.LENGTH_SHORT).show()
+                    finish()
+                }
                 finish()
             }
 
@@ -77,10 +93,16 @@ class MainActivity : AppCompatActivity() {
         // 刷新新的播放视频
         // 获取视频信息
         videoPlay = videoRepository.getRandomVideo(jwtToken!!)
-        // 打印videoPlay
-        // println("videoPlayInfo: $videoPlay")
-        withContext(Dispatchers.Main) {
-            playVideo(BASE_URL + "video?filename=" + (videoPlay?.videoName ?: ""))
+        if (videoPlay == null) {
+            // 网络请求有问题，利用Toast弹出，然后退出应用
+            Toast.makeText(this, "没有更多视频了", Toast.LENGTH_SHORT).show()
+            finish()
+        } else {
+            // 打印videoPlay
+            // println("videoPlayInfo: $videoPlay")
+            withContext(Dispatchers.Main) {
+                playVideo(BASE_URL + "video?filename=" + (videoPlay?.videoName ?: ""))
+            }
         }
     }
 
