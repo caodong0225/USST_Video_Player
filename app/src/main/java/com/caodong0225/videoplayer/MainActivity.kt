@@ -3,8 +3,12 @@ package com.caodong0225.videoplayer
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
-import com.caodong0225.videoplayer.client.RetrofitClient
+import com.caodong0225.videoplayer.client.RetrofitClient.BASE_URL
+import com.caodong0225.videoplayer.model.VideoInfo
+import com.caodong0225.videoplayer.repository.UserRepository
+import com.caodong0225.videoplayer.repository.VideoRepository
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.ui.PlayerView
@@ -19,6 +23,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var player: ExoPlayer
     private lateinit var playerView: PlayerView
     private var jwtToken: String? = null
+    private var videoPlay: VideoInfo? = null
+    private val userRepository = UserRepository()  // 实例化 AuthRepository
+    private val videoRepository = VideoRepository()  // 实例化 VideoRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,23 +36,33 @@ class MainActivity : AppCompatActivity() {
 
         // 获取 JWT token
         CoroutineScope(Dispatchers.IO).launch {
-            jwtToken = fetchJwtToken(androidId)
+            jwtToken = userRepository.fetchJwtToken(androidId)
+            // 打印jwtToken
+            // println("jwtToken: $jwtToken")
+            if (jwtToken != null) {
+                // 获取视频信息
+                videoPlay = videoRepository.getRandomVideo(jwtToken!!)
+                // 打印videoPlay
+                // println("videoPlayInfo: $videoPlay")
+            }else{
+                // 网络请求有问题，利用Toast弹出，然后退出应用
+                // Toast.makeText(this, "网络请求失败", Toast.LENGTH_SHORT).show()
+                finish()
+            }
 
             withContext(Dispatchers.Main) {
                 initializePlayer()
             }
         }
+
+        // 设置下一个按钮点击事件
+        findViewById<Button>(R.id.nextButton).setOnClickListener {
+            playNextVideo()
+        }
     }
 
-    private suspend fun fetchJwtToken(uuid: String): String? {
-        return try {
-            val response = RetrofitClient.instance.getJwtToken(uuid)
-            // Log.d("JWT Response", "Code: ${response.code}, Message: ${response.message}, Data: ${response.data}")
-            response.data
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
+    private fun playNextVideo() {
+
     }
 
     private fun initializePlayer() {
@@ -59,13 +76,20 @@ class MainActivity : AppCompatActivity() {
         // 添加事件监听器以获取详细日志
         player.addAnalyticsListener(EventLogger())
 
+        // 初始化videoPlay
         // val videoUri = Uri.parse("android.resource://${packageName}/${R.raw.sample_video}")
-        val videoUri = Uri.parse("http://192.168.31.62:8080/video?filename=loading.mp4")
+        // val videoUri = Uri.parse("http://192.168.31.62:8080/video?filename=loading.mp4")
+        playVideo(BASE_URL + "video?filename=" + (videoPlay?.videoName ?: ""))
+    }
+
+    private fun playVideo(source: String) {
+        val videoUri = Uri.parse(source)
         val mediaItem = MediaItem.fromUri(videoUri)
 
         player.setMediaItem(mediaItem)
         player.prepare()
-        player.play();
+        player.play()
+
     }
 
     override fun onPause() {
