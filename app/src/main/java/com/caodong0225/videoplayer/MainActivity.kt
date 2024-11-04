@@ -1,6 +1,5 @@
 package com.caodong0225.videoplayer
 
-import android.annotation.SuppressLint
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -44,7 +43,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cacheDataSourceFactory: CacheDataSource.Factory
     private var videoAPI = BASE_URL + "video?filename="
 
-    @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -68,9 +66,9 @@ class MainActivity : AppCompatActivity() {
                     // Switch to the main thread to show the Toast and then finish the activity
                     withContext(Dispatchers.Main) {
                         Toast.makeText(this@MainActivity, "没有更多视频了", Toast.LENGTH_SHORT).show()
-                        finish()
+                        // finish()
                     }
-                    finish()
+                    // finish()
                 }
                 // 打印videoPlay
                 // println("videoPlayInfo: $videoPlay")
@@ -79,9 +77,9 @@ class MainActivity : AppCompatActivity() {
                 // Switch to the main thread to show the Toast and then finish the activity
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@MainActivity, "网络请求失败", Toast.LENGTH_SHORT).show()
-                    finish()
+                    // finish()
                 }
-                finish()
+                // finish()
             }
 
             withContext(Dispatchers.Main) {
@@ -106,24 +104,36 @@ class MainActivity : AppCompatActivity() {
     private suspend fun playNextVideo() {
         // 播放下一个视频
         // val currentPosition = player.currentPosition // Current position in milliseconds
-        val duration = System.currentTimeMillis() - videoStartTime!!
-        val videoId = videoPlay?.id
-        // 设置为UpdateVideoInfo
-        // 上传浏览数据历史
-        videoRepository.uploadVideoInfo(jwtToken!!, UploadVideoInfoDTO(videoId!!, duration))
-        videoRepository.saveVideoToHistory(videoPlay!!)
-        // 刷新新的播放视频
-        // 获取视频信息
-        videoPlay = videoRepository.getRandomVideo(jwtToken!!)
         if (videoPlay == null) {
             // 网络请求有问题，利用Toast弹出，然后退出应用
-            Toast.makeText(this, "没有更多视频了", Toast.LENGTH_SHORT).show()
-            // finish()
-        } else {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@MainActivity, "没有更多视频了", Toast.LENGTH_SHORT).show()
+                // finish() // 取消退出逻辑，避免不必要的退出
+            }
+        }else{
+            val duration = System.currentTimeMillis() - videoStartTime!!
+            val videoId = videoPlay?.id
+            // 设置为UpdateVideoInfo
+            // 上传浏览数据历史
+            videoRepository.saveVideoToHistory(videoPlay!!)
+            videoRepository.uploadVideoInfo(jwtToken!!, UploadVideoInfoDTO(videoId!!, duration))
+            // 刷新新的播放视频
+            // 获取视频信息
+            videoPlay = videoRepository.getRandomVideo(jwtToken!!)
             // 打印videoPlay
             // println("videoPlayInfo: $videoPlay")
-            withContext(Dispatchers.Main) {
-                playVideo(videoAPI + (videoPlay?.videoName ?: ""))
+            if (videoPlay == null) {
+                // 网络请求有问题，利用Toast弹出，然后退出应用
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "没有更多视频了", Toast.LENGTH_SHORT).show()
+                    // finish() // 取消退出逻辑，避免不必要的退出
+                }
+            } else {
+                // 打印videoPlay
+                // println("videoPlayInfo: $videoPlay")
+                withContext(Dispatchers.Main) {
+                    playVideo(videoAPI + (videoPlay?.videoName ?: ""))
+                }
             }
         }
     }
