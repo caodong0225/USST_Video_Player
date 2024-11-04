@@ -1,7 +1,7 @@
 package com.caodong0225.videoplayer.model
 
 data class BaseDataResponse<T>(
+    val data: T? = null,
     val code: Int,
-    val message: String,
-    val data: T?
+    val message: String
 )

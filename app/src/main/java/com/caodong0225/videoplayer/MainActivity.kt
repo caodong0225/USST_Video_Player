@@ -6,6 +6,7 @@ import android.provider.Settings
 import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 import com.caodong0225.videoplayer.client.RetrofitClient.BASE_URL
+import com.caodong0225.videoplayer.model.UploadVideoInfoDTO
 import com.caodong0225.videoplayer.model.VideoInfo
 import com.caodong0225.videoplayer.repository.UserRepository
 import com.caodong0225.videoplayer.repository.VideoRepository
@@ -26,6 +27,7 @@ class MainActivity : AppCompatActivity() {
     private var videoPlay: VideoInfo? = null
     private val userRepository = UserRepository()  // 实例化 AuthRepository
     private val videoRepository = VideoRepository()  // 实例化 VideoRepository
+    private var videoStartTime: Long? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,12 +59,29 @@ class MainActivity : AppCompatActivity() {
 
         // 设置下一个按钮点击事件
         findViewById<Button>(R.id.nextButton).setOnClickListener {
-            playNextVideo()
+            // 启动协程
+            CoroutineScope(Dispatchers.IO).launch {
+                playNextVideo()
+            }
         }
     }
 
-    private fun playNextVideo() {
-
+    private suspend fun playNextVideo() {
+        // 播放下一个视频
+        // val currentPosition = player.currentPosition // Current position in milliseconds
+        val duration = System.currentTimeMillis() - videoStartTime!!
+        val videoId = videoPlay?.id
+        // 设置为UpdateVideoInfo
+        // 上传浏览数据历史
+        videoRepository.uploadVideoInfo(jwtToken!!, UploadVideoInfoDTO(videoId!!, duration))
+        // 刷新新的播放视频
+        // 获取视频信息
+        videoPlay = videoRepository.getRandomVideo(jwtToken!!)
+        // 打印videoPlay
+        // println("videoPlayInfo: $videoPlay")
+        withContext(Dispatchers.Main) {
+            playVideo(BASE_URL + "video?filename=" + (videoPlay?.videoName ?: ""))
+        }
     }
 
     private fun initializePlayer() {
@@ -89,6 +108,7 @@ class MainActivity : AppCompatActivity() {
         player.setMediaItem(mediaItem)
         player.prepare()
         player.play()
+        videoStartTime = System.currentTimeMillis()
 
     }
 
