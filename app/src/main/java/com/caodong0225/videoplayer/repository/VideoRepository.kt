@@ -1,8 +1,11 @@
 package com.caodong0225.videoplayer.repository
 
 import com.caodong0225.videoplayer.client.RetrofitClient
+import com.caodong0225.videoplayer.client.RetrofitClient.sharedPreferences
 import com.caodong0225.videoplayer.model.UploadVideoInfoDTO
 import com.caodong0225.videoplayer.model.VideoInfo
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -31,6 +34,27 @@ class VideoRepository {
                 e.printStackTrace()
                 null
             }
+        }
+    }
+
+    fun saveVideoToHistory(videoInfo: VideoInfo) {
+        val editor = sharedPreferences.edit()
+        val historyList = getVideoHistory() // 获取当前历史记录
+        historyList.add(videoInfo) // 将新的视频信息添加到列表中
+
+        // 将更新后的列表存储回 SharedPreferences
+        val jsonString = Gson().toJson(historyList)
+        editor.putString("video_history_list", jsonString)
+        editor.apply()
+    }
+
+    fun getVideoHistory(): MutableList<VideoInfo> {
+        val jsonString = sharedPreferences.getString("video_history_list", null)
+        return if (jsonString != null) {
+            val type = object : TypeToken<MutableList<VideoInfo>>() {}.type
+            Gson().fromJson(jsonString, type)
+        } else {
+            mutableListOf()
         }
     }
 }
