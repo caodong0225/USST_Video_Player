@@ -42,6 +42,7 @@ class MainActivity : AppCompatActivity() {
     private var simpleCache: SimpleCache? = null
     private lateinit var cacheDataSourceFactory: CacheDataSource.Factory
     private var videoAPI = BASE_URL + "video?filename="
+    private var videoIndex: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,12 +61,17 @@ class MainActivity : AppCompatActivity() {
             if (jwtToken != null) {
                 // 获取视频信息
                 videoPlay = videoRepository.getRandomVideo(jwtToken!!)
+                val historyList = videoRepository.getVideoHistory()
+                // 清空historyList
+                historyList.clear()
+                videoIndex = historyList.size - 1
 
-                if(videoPlay == null) {
+                if (videoPlay == null) {
                     // 网络请求有问题，利用Toast弹出，然后退出应用
                     // Switch to the main thread to show the Toast and then finish the activity
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, "没有更多视频了", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, "没有更多视频了", Toast.LENGTH_SHORT)
+                            .show()
                         // finish()
                     }
                     // finish()
@@ -104,18 +110,27 @@ class MainActivity : AppCompatActivity() {
     private suspend fun playNextVideo() {
         // 播放下一个视频
         // val currentPosition = player.currentPosition // Current position in milliseconds
+        if (videoIndex < videoRepository.getVideoHistory().size - 1) {
+            videoIndex += 1
+            videoPlay = videoRepository.getVideoHistory()[videoIndex]
+            withContext(Dispatchers.Main) {
+                playVideo(videoAPI + (videoPlay?.videoName ?: ""))
+            }
+            return
+        }
         if (videoPlay == null) {
             // 网络请求有问题，利用Toast弹出，然后退出应用
             withContext(Dispatchers.Main) {
                 Toast.makeText(this@MainActivity, "没有更多视频了", Toast.LENGTH_SHORT).show()
                 // finish() // 取消退出逻辑，避免不必要的退出
             }
-        }else{
+        } else {
             val duration = System.currentTimeMillis() - videoStartTime!!
             val videoId = videoPlay?.id
             // 设置为UpdateVideoInfo
             // 上传浏览数据历史
             videoRepository.saveVideoToHistory(videoPlay!!)
+            videoIndex += 1
             videoRepository.uploadVideoInfo(jwtToken!!, UploadVideoInfoDTO(videoId!!, duration))
             // 刷新新的播放视频
             // 获取视频信息
@@ -140,9 +155,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun playPreviousVideo() {
         val historyList = videoRepository.getVideoHistory()
-        if (historyList.size > 1) {
-            historyList.removeLast() // 移除当前视频，得到上一个视频
-            val previousVideo = historyList.last()
+        if (videoIndex >= 1) {
+            val previousVideo = historyList[videoIndex]
+            videoIndex -= 1
+            // historyList.removeLast() // 移除当前视频，得到上一个视频
             playVideo(videoAPI + previousVideo.videoName)
 
             // 更新历史记录，去掉当前视频
@@ -161,7 +177,8 @@ class MainActivity : AppCompatActivity() {
         simpleCache = SimpleCache(cacheDir, evictor)
 
         // Create a DataSource.Factory with caching enabled
-        val httpDataSourceFactory = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
+        val httpDataSourceFactory =
+            DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true)
         cacheDataSourceFactory = CacheDataSource.Factory()
             .setCache(simpleCache!!)
             .setUpstreamDataSourceFactory(httpDataSourceFactory)
